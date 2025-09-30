@@ -2,9 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Button, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { getAllTodos, getDBVersion, getSQLiteVersion, migrateDB } from "@/lib/db";
+import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, migrateDB, updateTodoStatus } from "@/lib/db";
 import { TodoItem, uuid } from "@/lib/types";
-import * as crypto from "expo-crypto";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -12,7 +11,6 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (id: uuid) => void }) {
 
   const handlePress = (id: uuid) => {
-    console.log(`Todo item with id ${id} marked as complete.`);
     toggleTodo(id);
   };
 
@@ -93,8 +91,8 @@ function Footer() {
   const [sqliteVersion, setSqliteVersion] = useState<string>("");
   const [dbVersion, setDBVersion] = useState<string>();
 
-  useEffect( () => {
-    async function setup(){
+  useEffect(() => {
+    async function setup() {
       const sqliteVersionResult = await getSQLiteVersion(db);
       if (sqliteVersionResult) {
         setSqliteVersion(sqliteVersionResult['sqlite_version()']);
@@ -104,7 +102,7 @@ function Footer() {
       }
 
       const dbVersionResult = await getDBVersion(db);
-      
+
       if (dbVersionResult) {
         setDBVersion(dbVersionResult['user_version'].toString());
       }
@@ -121,36 +119,42 @@ function Footer() {
 
   return (
     <View>
-      <Text style={{padding: 20}}>SQLite version: {sqliteVersion} / DBVersion: {dbVersion}</Text>
+      <Text style={{ padding: 20 }}>SQLite version: {sqliteVersion} / DBVersion: {dbVersion}</Text>
     </View>
   );
 }
 
 function TodoList() {
-  
+
   const [todos, setTodos] = React.useState<TodoItem[]>([]);
 
   const db = useSQLiteContext();
-  
+
   useEffect(() => {
     async function load() {
       const result = await getAllTodos(db);
       setTodos(result);
     }
-    
+
     load();
 
   }, [db])
 
-
   const [filter, setFilter] = React.useState<FilterOptions>(FilterOptions.All);
 
-  const addTodo = (text: string) => {
-    setTodos([...todos, { id: crypto.randomUUID(), text: text, done: false, createdAt: new Date() }]);
+  const addTodo = async (text: string) => {
+    const newTodo = await createTodo(db, text);
+    setTodos([...todos, newTodo]);
   };
 
-  const toggleTodo = (id: uuid) => {
-    setTodos(todos.map(todo => todo.id === id ? { ...todo, done: !todo.done } : todo));
+  const toggleTodo = async (id: uuid) => {
+    const updatedTodo = await updateTodoStatus(db, id, !todos.find(todo => todo.id === id)?.done);
+
+    if (updatedTodo) {
+      setTodos(todos.map(todo => todo.id === updatedTodo.id ? updatedTodo : todo));
+    } else {
+      console.warn(`Todo with id ${id} not found`);
+    }
   };
 
   return (

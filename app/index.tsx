@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, migrateDB, updateTodoStatus } from "@/lib/db";
@@ -7,24 +7,78 @@ import { TodoItem, uuid } from "@/lib/types";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import ReanimatedSwipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Reanimated, { FadeIn, FadeOut, SharedValue, useAnimatedStyle } from "react-native-reanimated";
+
+// No componente RightAction, os parâmetros prog e drag são valores compartilhados (SharedValue) fornecidos pelo ReanimatedSwipeable:
+
+// prog (progress): representa o progresso do swipe, normalmente variando de 0 (sem swipe) até 1 (swipe completo). Pode ser usado para animar elementos conforme o usuário desliza.
+// drag: representa o deslocamento horizontal do swipe, ou seja, quantos pixels o item foi arrastado para o lado. Usado para animar a posição ou outros estilos do botão de ação.
+// Esses valores permitem criar animações reativas e dinâmicas no botão de ação, tornando a experiência de swipe mais fluida e visualmente agradável.
+function RightAction({ prog, drag, isDone, onPress }: {
+  prog: SharedValue<number>;
+  drag: SharedValue<number>;
+  isDone?: boolean;
+  onPress: () => void;
+}) {
+  const styleAnimation = useAnimatedStyle(() => ({
+    transform: [{ translateX: drag.value + 200 }],
+  }));
+
+  return (
+    <Reanimated.View style={[styleAnimation, { width: 200, height: "100%" }]}>
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: isDone ? "orange" : "green",
+            justifyContent: "center",
+            alignItems: "center",
+            width: "100%",
+            height: "100%",
+            borderRadius: 0,
+          }}
+          onPress={onPress}
+          activeOpacity={0.7}
+        >
+          <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
+            {isDone ? "Marcar como pendente" : "Marcar como concluído"}
+          </Text>
+        </TouchableOpacity>
+    </Reanimated.View>
+  );
+}
 
 function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (id: uuid) => void }) {
 
+  const swipeableRef = React.useRef<SwipeableMethods>(null);
+
   const handlePress = (id: uuid) => {
-    toggleTodo(id);
+    swipeableRef.current?.close();
+    toggleTodo(id); // remove do estado imediatamente, animação de saída será aplicada
   };
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      {!todoItem.done ? (
-        <>
-          <Text style={styles.item}>{todoItem.text}</Text>
-          <Button title="Concluir" onPress={() => { handlePress(todoItem.id) }} color="green" />
-        </>
-      ) : (
-        <Text style={styles.itemdone}>{todoItem.text}</Text>
-      )}
-    </View>
+    <Reanimated.View exiting={FadeOut} entering={FadeIn}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <ReanimatedSwipeable
+          ref={swipeableRef}
+          containerStyle={styles.item}
+          friction={1}
+          enableTrackpadTwoFingerGesture
+          rightThreshold={200}
+          renderRightActions={(prog, drag) => (
+            <RightAction
+              prog={prog}
+              drag={drag}
+              isDone={todoItem.done}
+              onPress={() => handlePress(todoItem.id)}
+            />
+          )}
+        >
+          <Text style={todoItem.done ? styles.itemdone : styles.item}>{todoItem.text}</Text>
+        </ReanimatedSwipeable>
+      </View>
+    </Reanimated.View>
   );
 }
 
@@ -109,9 +163,6 @@ function Footer() {
       else {
         setDBVersion('unknown');
       }
-
-
-
     }
 
     setup();
@@ -181,7 +232,9 @@ function TodoList() {
           const aDate = a.createdAt ?? new Date(0);
           const bDate = b.createdAt ?? new Date(0);
           return aDate === bDate ? 0 : aDate < bDate ? 1 : -1;
-        })}
+        }).sort((a, b) => {
+           return (a.done === b.done) ? 0 : a.done ? 1 : -1;
+         })}
         renderItem={({ item }) => (
           <ListItem todoItem={item} toggleTodo={toggleTodo} />
         )}
@@ -224,12 +277,14 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 18,
     height: 44,
+    width: "100%"
   },
   itemdone: {
     padding: 10,
     fontSize: 18,
     height: 44,
     textDecorationLine: "line-through",
+    width: "100%"
   },
   list: {
     width: "100%",

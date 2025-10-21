@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -50,7 +50,7 @@ function RightAction({ prog, drag, isDone, onPress }: {
 
 function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (id: uuid) => void }) {
 
-  const swipeableRef = React.useRef<SwipeableMethods>(null);
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
   const handlePress = (id: uuid) => {
     swipeableRef.current?.close();

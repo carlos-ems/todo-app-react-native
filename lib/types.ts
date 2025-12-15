@@ -7,7 +7,7 @@ export type TodoItem = {
     createdAt: Date,
 
     listId: uuid,
-    notes: string,
+    notes?: string,
     dueDate: Date
 };
 

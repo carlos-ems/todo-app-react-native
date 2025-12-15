@@ -39,7 +39,7 @@ export default function ListsScreen() {
   };
 
   const renderItem = ({ item }: { item: TodoList }) => (
-    <Link href={{ pathname: "/", params: { listId: item.id } }} asChild>
+    <Link href={{ pathname: "./(tabs)/", params: { listId: item.id } }} asChild>
         <TouchableOpacity style={styles.listItem}>
             <View style={styles.listContent}>
                 <IconSymbol name="list.bullet" size={24} color="#0a7ea4" />

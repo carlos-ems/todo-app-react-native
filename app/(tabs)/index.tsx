@@ -59,7 +59,7 @@ function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (i
   };
 
   return (
-    <Link href={{ pathname: "/task-detail", params: { id: todoItem.id } }} asChild>
+    <Link href={{ pathname: "./task-detail", params: { id: todoItem.id } }} asChild>
       <TouchableOpacity>
         <Reanimated.View exiting={FadeOut} entering={FadeIn}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>

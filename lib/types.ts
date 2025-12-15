@@ -8,7 +8,7 @@ export type TodoItem = {
 
     listId: uuid,
     notes?: string,
-    dueDate: Date
+    dueDate?: Date
 };
 
 export type TodoList = {

@@ -21,7 +21,6 @@ export async function migrateDB(db: SQLiteDatabase) {
     currentDbVersion = 1;
   }
 
-  //Atualização de versão
   if (currentDbVersion === 1) {
     console.log("Upgrading database to version 2...");
     await upgradeToVersion2(db);
@@ -205,9 +204,8 @@ export async function updateTodo(
 
   const text = updates.text ?? todo.text;
   const notes = updates.notes ?? todo.notes;
-  // Converter Date para string ou null
   const dueDate = updates.dueDate ? updates.dueDate.toISOString() : 
-                 (todo.dueDate ? new Date(todo.dueDate).toISOString() : null);
+                 (todo.dueDate ? (typeof todo.dueDate === 'string' ? todo.dueDate : new Date(todo.dueDate).toISOString()) : null);
   const listId = updates.listId ?? todo.listId;
 
   const result = await db.getFirstAsync<TodoItem | null>(

@@ -4,7 +4,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { TodoList } from "@/lib/types";
 import { getAllLists, createList } from "@/lib/db";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 
 export default function ListsScreen() {
@@ -18,8 +18,13 @@ export default function ListsScreen() {
   }, [db]);
 
   const loadLists = async () => {
-    const result = await getAllLists(db);
-    setLists(result);
+    try {
+      const result = await getAllLists(db);
+      setLists(result);
+    } catch (error) {
+      console.error("Error loading lists:", error);
+      Alert.alert("Erro", "Não foi possível carregar as listas");
+    }
   };
 
   const handleCreateList = async () => {
@@ -33,21 +38,30 @@ export default function ListsScreen() {
       setLists([...lists, newList]);
       setNewListName("");
       setModalVisible(false);
+      Alert.alert("Sucesso", "Lista criada com sucesso!");
     } catch (error) {
       Alert.alert("Erro", "Não foi possível criar a lista");
     }
   };
 
+  const handleListPress = (listId: string) => {
+    router.push({
+      pathname: "/(tabs)",
+      params: { listId }
+    });
+  };
+
   const renderItem = ({ item }: { item: TodoList }) => (
-    <Link href={{ pathname: "./(tabs)/", params: { listId: item.id } }} asChild>
-        <TouchableOpacity style={styles.listItem}>
-            <View style={styles.listContent}>
-                <IconSymbol name="list.bullet" size={24} color="#0a7ea4" />
-                <Text style={styles.listName}>{item.name}</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color="#687076" />
-        </TouchableOpacity>
-    </Link>
+    <TouchableOpacity 
+      style={styles.listItem}
+      onPress={() => handleListPress(item.id)}
+    >
+      <View style={styles.listContent}>
+        <IconSymbol name="list.bullet" size={24} color="#0a7ea4" />
+        <Text style={styles.listName}>{item.name}</Text>
+      </View>
+      <IconSymbol name="chevron.right" size={20} color="#687076" />
+    </TouchableOpacity>
   );
 
   return (
@@ -67,6 +81,12 @@ export default function ListsScreen() {
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContainer}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Nenhuma lista criada</Text>
+                <Text style={styles.emptySubtext}>Clique no botão + para criar uma nova lista</Text>
+              </View>
+            }
         />
 
         <Modal
@@ -84,6 +104,8 @@ export default function ListsScreen() {
                         value={newListName}
                         onChangeText={setNewListName}
                         autoFocus
+                        onSubmitEditing={handleCreateList}
+                        returnKeyType="done"
                     />
                     <View style={styles.modalButtons}>
                         <TouchableOpacity
@@ -136,6 +158,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: 20,
+    flexGrow: 1,
   },
   listItem: {
     flexDirection: "row",
@@ -205,5 +228,21 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: "white",
     fontWeight: "600",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#6c757d",
+    marginBottom: 10,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#adb5bd",
+    textAlign: "center",
   },
 });

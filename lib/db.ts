@@ -52,7 +52,6 @@ async function initializeDB(db: SQLiteDatabase) {
 async function upgradeToVersion2(db: SQLiteDatabase) {
   console.log("Running database upgrade to version 2...");
   
-  // Criação da tabela de listas
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS todo_lists (
       id TEXT PRIMARY KEY,
@@ -60,7 +59,6 @@ async function upgradeToVersion2(db: SQLiteDatabase) {
     );
   `);
 
-  // Adição das colunas listId, notes e dueDate à tabela todos
   try {
     await db.execAsync(`ALTER TABLE todos ADD COLUMN listId TEXT;`);
   } catch (e) {
@@ -79,7 +77,6 @@ async function upgradeToVersion2(db: SQLiteDatabase) {
     console.log("Column dueDate may already exist");
   }
 
-  // Inserção da lista padrão
   const defaultListExists = await db.getFirstAsync<{ count: number }>(
     "SELECT COUNT(*) as count FROM todo_lists WHERE id = 'default-list'"
   );
@@ -90,7 +87,6 @@ async function upgradeToVersion2(db: SQLiteDatabase) {
     );
   }
 
-  // Atualização de tarefas existentes para usar a lista padrão
   await db.execAsync(
     "UPDATE todos SET listId = 'default-list' WHERE listId IS NULL;"
   );

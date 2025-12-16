@@ -2,20 +2,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, migrateDB, updateTodoStatus, getAllLists, getTodosByList } from "@/lib/db";
+import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, updateTodoStatus, getAllLists, getTodosByList } from "@/lib/db";
 import { TodoItem, uuid } from "@/lib/types";
-import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
+import { useSQLiteContext } from "expo-sqlite";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, Link, router } from "expo-router";
 
 import ReanimatedSwipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Reanimated, { FadeIn, FadeOut, SharedValue, useAnimatedStyle } from "react-native-reanimated";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-
-// prog (progress): representa o progresso do swipe, normalmente variando de 0 (sem swipe) até 1 (swipe completo). Pode ser usado para animar elementos conforme o usuário desliza.
-// drag: representa o deslocamento horizontal do swipe, ou seja, quantos pixels o item foi arrastado para o lado. Usado para animar a posição ou outros estilos do botão de ação.
-// Esses valores permitem criar animações reativas e dinâmicas no botão de ação, tornando a experiência de swipe mais fluida e visualmente agradável.
 
 function RightAction({ prog, drag, isDone, onPress }: {
   prog: SharedValue<number>;
@@ -59,7 +54,7 @@ function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (i
   };
 
   return (
-    <Link href={{ pathname: "./task-detail", params: { id: todoItem.id } }} asChild>
+    <Link href={{ pathname: "/task-details", params: { id: todoItem.id } }} asChild>
       <TouchableOpacity>
         <Reanimated.View exiting={FadeOut} entering={FadeIn}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -83,12 +78,10 @@ function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (i
                   {todoItem.text}
                 </Text>
                 
-                {/* Informações da lista */}
                 <Text style={styles.listInfo}>
                   📋 Lista: {todoItem.listId === 'default-list' ? 'Geral' : todoItem.listId}
                 </Text>
                 
-                {/* Data de vencimento */}
                 {todoItem.dueDate && (
                   <Text style={[
                     styles.dueDate,
@@ -99,7 +92,6 @@ function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (i
                   </Text>
                 )}
                 
-                {/* Notas resumidas */}
                 {todoItem.notes && (
                   <Text style={styles.notes} numberOfLines={2}>
                     📝 {todoItem.notes}
@@ -152,31 +144,56 @@ function AddTodoForm({ addTodoHandler, lists, selectedListId }: {
 }) {
   const [text, setText] = useState("");
   const [notes, setNotes] = useState("");
-  const [dueDate, setDueDate] = useState<Date | undefined>();
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dueDateText, setDueDateText] = useState("");
   const [selectedList, setSelectedList] = useState<string>(selectedListId || 'default-list');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const handlePress = () => {
-    if (text.trim().length === 0) {
-      Alert.alert("Atenção", "Por favor, digite uma descrição para a tarefa");
+const handlePress = () => {
+  if (text.trim().length === 0) {
+    Alert.alert("Atenção", "Por favor, digite uma descrição para a tarefa");
+    return;
+  }
+
+  let parsedDueDate: Date | undefined = undefined;
+
+  // Verifica se a data foi fornecida
+  if (dueDateText.trim()) {
+    // Formato esperado: DD/MM/AAAA
+    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    const match = dueDateText.match(dateRegex);
+    
+    if (!match) {
+      Alert.alert("Erro", "Formato de data inválido. Use DD/MM/AAAA");
       return;
     }
-
-    addTodoHandler(text, selectedList, notes.trim() || undefined, dueDate);
-    setText("");
-    setNotes("");
-    setDueDate(undefined);
-    setShowAdvanced(false);
-    Keyboard.dismiss();
-  };
-
-  const handleDateChange = (event: any, date?: Date) => {
-    setShowDatePicker(false);
-    if (date) {
-      setDueDate(date);
+    
+    const [, day, month, year] = match;
+    const dayNum = parseInt(day, 10);
+    const monthNum = parseInt(month, 10) - 1; // Mês começa em 0 no JavaScript
+    const yearNum = parseInt(year, 10);
+    
+    // Validação básica da data
+    const date = new Date(yearNum, monthNum, dayNum);
+    
+    // Verifica se a data é válida
+    if (isNaN(date.getTime()) || 
+        date.getDate() !== dayNum || 
+        date.getMonth() !== monthNum || 
+        date.getFullYear() !== yearNum) {
+      Alert.alert("Erro", "Data inválida. Verifique o dia, mês e ano");
+      return;
     }
-  };
+    
+    parsedDueDate = date;
+  }
+
+  addTodoHandler(text, selectedList, notes.trim() || undefined, parsedDueDate);
+  setText("");
+  setNotes("");
+  setDueDateText("");
+  setShowAdvanced(false);
+  Keyboard.dismiss();
+};
 
   return (
     <View style={{ width: "100%", marginTop: 10, paddingHorizontal: 20, alignItems: "center" }}>
@@ -201,7 +218,6 @@ function AddTodoForm({ addTodoHandler, lists, selectedListId }: {
 
       {showAdvanced && (
         <View style={styles.advancedOptions}>
-          {/* Lista */}
           <Text style={styles.optionLabel}>Lista:</Text>
           <View style={styles.listOptions}>
             {lists.map((list) => (
@@ -223,26 +239,16 @@ function AddTodoForm({ addTodoHandler, lists, selectedListId }: {
             ))}
           </View>
 
-          {/* Data */}
           <Text style={styles.optionLabel}>Data de vencimento:</Text>
-          <TouchableOpacity 
-            style={styles.dateButton}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={styles.dateButtonText}>
-              {dueDate ? dueDate.toLocaleDateString("pt-BR") : "Selecionar data"}
-            </Text>
-          </TouchableOpacity>
-          {dueDate && (
-            <TouchableOpacity 
-              style={styles.clearDateButton}
-              onPress={() => setDueDate(undefined)}
-            >
-              <Text style={styles.clearDateText}>Remover data</Text>
-            </TouchableOpacity>
-          )}
+          <TextInput
+            value={dueDateText}
+            onChangeText={setDueDateText}
+            style={styles.notesInput}
+            placeholder="DD/MM/AAAA"
+            keyboardType="numeric"
+            maxLength={10}
+          />
 
-          {/* Notas */}
           <Text style={styles.optionLabel}>Notas:</Text>
           <TextInput
             value={notes}
@@ -256,15 +262,6 @@ function AddTodoForm({ addTodoHandler, lists, selectedListId }: {
         </View>
       )}
       
-      {showDatePicker && (
-        <DateTimePicker
-          value={dueDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
-
       <TouchableOpacity 
         style={styles.addButton}
         onPress={handlePress}
@@ -274,6 +271,7 @@ function AddTodoForm({ addTodoHandler, lists, selectedListId }: {
     </View>
   );
 }
+
 
 function TodoList() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
@@ -290,17 +288,14 @@ function TodoList() {
 
   const loadData = async () => {
     try {
-      // Carregar listas
       const listsResult = await getAllLists(db);
       setLists(listsResult);
       
-      // Encontrar nome da lista
       if (selectedListId) {
         const selectedList = listsResult.find(list => list.id === selectedListId);
         setListName(selectedList?.name || "Lista");
       }
 
-      // Carregar tarefas
       let todosResult;
       if (selectedListId) {
         todosResult = await getTodosByList(db, selectedListId);
@@ -317,6 +312,7 @@ function TodoList() {
     try {
       const newTodo = await createTodo(db, text, listId, notes, dueDate);
       setTodos([...todos, newTodo]);
+      loadData();
     } catch (error) {
       console.error("Error adding todo:", error);
       Alert.alert("Erro", "Não foi possível adicionar a tarefa");
@@ -337,7 +333,6 @@ function TodoList() {
     }
   };
 
-  // Ordenação: data de vencimento -> data de criação
   const filteredAndSortedTodos = todos
     .filter(todo => {
       switch (filter) {
@@ -352,18 +347,15 @@ function TodoList() {
       }
     })
     .sort((a, b) => {
-      // Tarefas concluídas no final
       if (a.done && !b.done) return 1;
       if (!a.done && b.done) return -1;
       
-      // Ordenar por data de vencimento (mais próxima primeiro)
       if (a.dueDate && !b.dueDate) return -1;
       if (!a.dueDate && b.dueDate) return 1;
       if (a.dueDate && b.dueDate) {
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       }
       
-      // Se sem data, ordena por criação (mais recente primeiro)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
@@ -397,7 +389,7 @@ function TodoList() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              Nenhuma tarefa {selectedListId ? "nesta lista" : ""}
+              {selectedListId ? "Nenhuma tarefa nesta lista" : "Nenhuma tarefa encontrada"}
             </Text>
           </View>
         }
@@ -445,10 +437,8 @@ export default function Index() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
-        <SQLiteProvider databaseName="todos.db" onInit={migrateDB}>
-          <TodoList />
-          <Footer />
-        </SQLiteProvider>
+        <TodoList />
+        <Footer />
       </SafeAreaView>
     </SafeAreaProvider>
   );

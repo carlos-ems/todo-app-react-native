@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, updateTodoStatus, getAllLists, getTodosByList } from "@/lib/db";
+import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, updateTodoStatus, getAllLists } from "@/lib/db";
 import { TodoItem, uuid } from "@/lib/types";
 import { useSQLiteContext } from "expo-sqlite";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -294,15 +294,20 @@ function TodoList() {
       if (selectedListId) {
         const selectedList = listsResult.find(list => list.id === selectedListId);
         setListName(selectedList?.name || "Lista");
+      } else {
+        setListName("Todas as Tarefas");
       }
 
-      let todosResult;
+      // Carrega todas as tarefas
+      const todosResult = await getAllTodos(db);
+      
+      // Filtra as tarefas por lista, se necessário
+      let filteredTodos = todosResult;
       if (selectedListId) {
-        todosResult = await getTodosByList(db, selectedListId);
-      } else {
-        todosResult = await getAllTodos(db);
+        filteredTodos = todosResult.filter(todo => todo.listId === selectedListId);
       }
-      setTodos(todosResult);
+      
+      setTodos(filteredTodos);
     } catch (error) {
       console.error("Error loading data:", error);
     }

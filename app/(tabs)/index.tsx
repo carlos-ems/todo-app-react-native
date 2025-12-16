@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { FlatList, GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, updateTodoStatus, getAllLists } from "@/lib/db";
+import { createTodo, getAllTodos, getDBVersion, getSQLiteVersion, updateTodoStatus, getAllLists, getTodosByList } from "@/lib/db";
 import { TodoItem, uuid } from "@/lib/types";
 import { useSQLiteContext } from "expo-sqlite";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -45,13 +45,20 @@ function RightAction({ prog, drag, isDone, onPress }: {
   );
 }
 
-function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (id: uuid) => void }) {
+function ListItem({ todoItem, toggleTodo, lists }: { 
+  todoItem: TodoItem; 
+  toggleTodo: (id: uuid) => void;
+  lists: { id: string; name: string }[];
+}) {
   const swipeableRef = useRef<SwipeableMethods>(null);
 
   const handlePress = (id: uuid) => {
     swipeableRef.current?.close();
     toggleTodo(id);
   };
+
+  const listName = lists.find(list => list.id === todoItem.listId)?.name || 
+                   (todoItem.listId === 'default-list' ? 'Geral' : todoItem.listId);
 
   return (
     <Link href={{ pathname: "/task-details", params: { id: todoItem.id } }} asChild>
@@ -79,7 +86,7 @@ function ListItem({ todoItem, toggleTodo }: { todoItem: TodoItem; toggleTodo: (i
                 </Text>
                 
                 <Text style={styles.listInfo}>
-                  📋 Lista: {todoItem.listId === 'default-list' ? 'Geral' : todoItem.listId}
+                  📋 Lista: {listName}
                 </Text>
                 
                 {todoItem.dueDate && (
@@ -298,16 +305,13 @@ function TodoList() {
         setListName("Todas as Tarefas");
       }
 
-      // Carrega todas as tarefas
-      const todosResult = await getAllTodos(db);
-      
-      // Filtra as tarefas por lista, se necessário
-      let filteredTodos = todosResult;
+      let todosResult;
       if (selectedListId) {
-        filteredTodos = todosResult.filter(todo => todo.listId === selectedListId);
+        todosResult = await getTodosByList(db, selectedListId);
+      } else {
+        todosResult = await getAllTodos(db);
       }
-      
-      setTodos(filteredTodos);
+      setTodos(todosResult);
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -388,7 +392,11 @@ function TodoList() {
         style={styles.list}
         data={filteredAndSortedTodos}
         renderItem={({ item }) => (
-          <ListItem todoItem={item} toggleTodo={toggleTodo} />
+          <ListItem 
+            todoItem={item} 
+            toggleTodo={toggleTodo} 
+            lists={lists} // Passa as listas aqui
+          />
         )}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={

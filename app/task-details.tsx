@@ -28,10 +28,14 @@ export default function TaskDetailScreen() {
       [taskId]
     );
     if (result) {
+      const dueDate = result.dueDate ? 
+        (typeof result.dueDate === 'string' ? new Date(result.dueDate) : new Date(result.dueDate)) : 
+        undefined;
+      
       setTask({
         ...result,
         createdAt: new Date(result.createdAt),
-        dueDate: result.dueDate ? new Date(result.dueDate) : undefined,
+        dueDate: dueDate,
       });
     }
   };
